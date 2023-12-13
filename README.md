@@ -2,14 +2,13 @@
 
 - Creazione di un nuovo ambiente di sviluppo : 
 
-conda create -n redis python=3.11
+    conda create -n redis python=3.11
+- Librerie installate : 
+
+    pip install redis
 
 -username, Password
 
-    user = progetto_redis
-    pass = b7^WJ#!4
-
-- Librerie installate : 
-
-pip install redis
-
+    user = default
+    pass = 01wNM4dZYmFHBCfiHGGUzLOFpo69MTxk
+    port = 11706
