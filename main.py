@@ -60,12 +60,57 @@ class RedisManager:
             print("Credenziali errate. Riprova.")
             return [False]
 
-    def aggiungi_utenti(self):
-        print("Hai selezionato aggiungi utenti")
-       
+    def aggiungi_utenti(self, username):
+        dizionario_utenti = {}
+
+        while True:
+            print("Hai selezionato aggiungi utenti")
+            utenti_trovati = self.ricerca_utenti()
+            print(f"Ecco una lista di utenti trovati :")
+
+            for i, utente in enumerate(utenti_trovati):
+                dizionario_utenti[i] = utente
+                print(f"{i} : {utente}")
+
+            print("Selezionare l'utente da aggiungere (inserire numero)")
+            scelta = int(input("Inserisci -> "))
+
+            if scelta in dizionario_utenti:
+                utente_selezionato = dizionario_utenti[scelta]
+                azione = input(f"Hai selezionato {utente_selezionato}\n Sicuro di volerlo aggiungere? Sì(S) - No(N)")
+
+                if azione.upper() == "S":
+                    print(f"Sto aggiungendo utente: {utente_selezionato}")
+                    
+                    if self.connection.exists(f"username:{utente_selezionato}"):
+                        chiave1 = f"amici:{username}:{utente_selezionato}"
+                        chiave2 = f"amici:{utente_selezionato}:{username}"
+                        self.connection.sadd(chiave1, utente_selezionato)
+                        self.connection.sadd(chiave2, utente_selezionato)
+                        print(f"Utente {utente_selezionato} aggiunto come amico.")
+                    else:
+                        print("Errore: Utente non esistente.")
+
+                elif azione.upper() == "N":
+                    print(f"Non desideri aggiungere utente: {utente_selezionato}")
+                    chiusura = input("Desideri cercare altri utenti? Sì(S) - No(N)")
+
+                    if chiusura.upper() == "N":
+                        break
+                    elif chiusura.upper() == "S":
+                        continue
+                    else:
+                        print("Errore nell'inserimento - conclusione")
+                        break
+                else:
+                    print("Errore nell'inserimento, ricomincio procedimento...")
+                    continue
+            else:
+                print("Errore: Scelta non valida. Riprova.")
+
 
     def ricerca_utenti(self):
-        print("Hai selezionato ricerca utenti")  
+        print("Ricerca utenti avviata")  
         chiave = 'username'    
         utente_ricerca = input("Selezionare l'utente da ricercare <- ")
         chiave_utente = chiave + ":" + utente_ricerca + '*'
@@ -78,8 +123,10 @@ class RedisManager:
         if utenti_trovati:
             utenti_trovati_str = ', '.join(utenti_trovati)
             print(f'Ecco gli utenti trovati -> "{utente_ricerca}": {utenti_trovati_str}')
+            return utenti_trovati
         else:
             print(f'Nessun utente trovato che comincia con "{utente_ricerca}"')
+            return False
 
     def non_disturbare(self):
         print("Non disturbare")
@@ -98,7 +145,7 @@ class RedisManager:
             if choice == 'R':
                 self.ricerca_utenti()
             elif choice == 'A':
-                self.aggiungi_utenti()
+                self.aggiungi_utenti(username=username)
             elif choice == 'O':
                 self.non_disturbare()
             elif choice == 'C':
