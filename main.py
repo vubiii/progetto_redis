@@ -132,6 +132,14 @@ class RedisManager:
     def non_disturbare(self):
         print("Non disturbare")
 
+    def invia_messaggio(self, chatroom, mittente, contenuto):
+        messaggio = {'mittente': mittente, '>': contenuto}
+        self.connection.xadd(chatroom, messaggio)
+    
+    def leggi_messagi(self, chatroom, ultimo_msg='0'):
+        messaggio = self.connection.xread({chatroom: ultimo_msg}, count = 10)
+        return messaggio
+    
     def chatta(self):
         while True:
             print("CHAT")
@@ -139,39 +147,16 @@ class RedisManager:
 
             choice = input("Inserisci la tua scelta: ")
 
-            if choice == '1':
-                destinatario = input("Inserisci il nome dell'utente destinatario: ")
-                messaggio = input("Inserisci il tuo messaggio: ")
-
-                timestamp = int(time.time() * 1000)  # Genera un timestamp univoco per il messaggio
-
-                username = self.connection.get('username:'f'{destinatario}')
-
-                chiave_stream = f"chat:{username}:{destinatario}"
-                messaggio_da_inviare = {f"{timestamp}": messaggio}
-
-                try:
-                    self.connection.xadd(chiave_stream, messaggio_da_inviare)
-                    print("Messaggio inviato con successo!")
-                except Exception as e:
-                    print(f"Errore durante l'invio del messaggio: {e}")
-
+            if choice == '1': 
+                chatroom = input('Inserisci in quale chatroom vuoi inviare i messaggi: ')
+                mitttente = input('mittente: ')  # -> Provisorio
+                messaggio = input('Inserisci il messaggio: ')
+                self.invia_messaggio(chatroom, mitttente, messaggio)
             elif choice == '2':
-                chiave_stream = f"chat:{username}:*"
-                try:
-                    messaggi = self.connection.xread({chiave_stream: '0'}, count=10)
-                    for stream, messages in messaggi:
-                        for message in messages:
-                            timestamp = message[0]
-                            content = message[1]['content']
-                            mittente = message[1]['sender']
-                            print(f"[{timestamp}] {mittente}: {content}")
-                except Exception as e:
-                    print(f"Errore durante la lettura dei messaggi: {e}")
-
+                chatroom = input('Di quale chatroom vuoi leggere i messaggi: ')
+                print(self.leggi_messagi(chatroom))
             elif choice == '3':
                 break
-
             else:
                 print("Scelta non valida. Riprova.")
 
