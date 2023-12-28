@@ -1,10 +1,11 @@
 import redis
+import time
 
 class RedisManager:
-    def __init__(self, host, port, password):
+    def __init__(self, host, port): #aggiungere il parametro password
         self.host = host
         self.port = port
-        self.password = password
+        #self.password = password
         self.connection = None
 
     def open(self):
@@ -13,7 +14,7 @@ class RedisManager:
             self.connection = redis.Redis(
                 host=self.host,
                 port=self.port,
-                password=self.password,
+                #password=self.password,
                 decode_responses=True  
             )
             print("Connessione riuscita")
@@ -132,13 +133,53 @@ class RedisManager:
         print("Non disturbare")
 
     def chatta(self):
-        pass
+        while True:
+            print("CHAT")
+            print("1. Invia Messaggio\n2. Visualizza Messaggi\n3. Torna alla Home")
+
+            choice = input("Inserisci la tua scelta: ")
+
+            if choice == '1':
+                destinatario = input("Inserisci il nome dell'utente destinatario: ")
+                messaggio = input("Inserisci il tuo messaggio: ")
+
+                timestamp = int(time.time() * 1000)  # Genera un timestamp univoco per il messaggio
+
+                username = self.connection.get('username:'f'{destinatario}')
+
+                chiave_stream = f"chat:{username}:{destinatario}"
+                messaggio_da_inviare = {f"{timestamp}": messaggio}
+
+                try:
+                    self.connection.xadd(chiave_stream, messaggio_da_inviare)
+                    print("Messaggio inviato con successo!")
+                except Exception as e:
+                    print(f"Errore durante l'invio del messaggio: {e}")
+
+            elif choice == '2':
+                chiave_stream = f"chat:{username}:*"
+                try:
+                    messaggi = self.connection.xread({chiave_stream: '0'}, count=10)
+                    for stream, messages in messaggi:
+                        for message in messages:
+                            timestamp = message[0]
+                            content = message[1]['content']
+                            mittente = message[1]['sender']
+                            print(f"[{timestamp}] {mittente}: {content}")
+                except Exception as e:
+                    print(f"Errore durante la lettura dei messaggi: {e}")
+
+            elif choice == '3':
+                break
+
+            else:
+                print("Scelta non valida. Riprova.")
 
     def home(self, username, password):
         while True:
             print(f"HOME \n")
             print(f"Seleziona cosa desideri fare :\n")
-            print(f"Ricerca Utenti (R) - Aggiungi Utenti (A) \n Non Disturbare (O) - Chatta! (C) - \n Esci (E)")
+            print(f" Ricerca Utenti (R)\n Aggiungi Utenti (A)\n Non Disturbare (O)\n Chatta! (C)\n Esci (E)")
 
             choice = input("Inserisci la tua scelta: ").upper()
 
@@ -157,14 +198,13 @@ class RedisManager:
 
 if __name__ == "__main__":
     redis_manager = RedisManager(
-        host='redis-10048.c304.europe-west1-2.gce.cloud.redislabs.com',
-        port=10048,
-        password='1x5x6xi9x0SGA4uOuErpndO5H8xYH9dG'
+        host='localhost',
+        port=6379,
     )
     print("Redis Chat")
     redis_manager.open()
 
-    print("Login(1) - Registrazione(0)")
+    print(" Login(1)\n Registrazione(2)")
     scelta = input("Inserire cosa desideri fare <- ")
 
     if scelta == '1':
@@ -175,7 +215,7 @@ if __name__ == "__main__":
             redis_manager.home(username=username, password=password)
         else:
                 print("Errore durante il login")
-    elif scelta == '0':
+    elif scelta == '2':
         if redis_manager.register():
             print("L'utente è stato registrato, effettua il login")
             informazioni_login = redis_manager.login()
@@ -194,6 +234,8 @@ if __name__ == "__main__":
                 redis_manager.home(username=username, password=password)
             else:
                 print("Errore durante il login")
+    elif scelta == '3':
+        redis_manager.chatta()
     else:
         print("Opzione selezionata non valida")
 
