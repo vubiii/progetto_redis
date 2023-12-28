@@ -34,11 +34,14 @@ class RedisManager:
         while True:
             username_input = input("Inserire il nome utente: ")
             password_input = input("Inserire password: ")
-            stored_password = self.connection.get(f"username:{username_input}")
+            stored_password = self.connection.hget('utente:'f'{username_input}', 'username')
 
             if stored_password is None:
                 try:
-                    self.connection.set(f"username:{username_input}", f"password:{password_input}")
+                    self.connection.hset('utente:'f'{username_input}', mapping={'username':f'{username_input}', 
+                                                                                'password':f'{password_input}',
+                                                                                'DnD': 1})
+                    
                     print(f"Registrazione utente completata, benvenuto {username_input}")
                     return True
                 except Exception as e:
@@ -52,16 +55,61 @@ class RedisManager:
         print("Login Utente")
         username = input("Inserire il nome utente: ")
         password = input("Inserire password: ")
-        password_registrata = self.connection.get(f"username:{username}")
+        password_registrata = self.connection.hget('utente:'f'{username}', 'password')
 
-        if password_registrata == f"password:{password}":
+        if password_registrata == password:
             print(f"Accesso effettuato con successo, benvenuto {username}")
+            global logatto 
+            logatto = username
+
             return [True, username, password]
         else:
             print("Credenziali errate. Riprova.")
             return [False]
+        
+    def agg_utenti(self):
+         while True:
+            print("Hai selezionato aggiungi utenti")
+            utenti_trovati = self.ricerca_utenti()
+            print("Ecco una lista di utenti trovati:")
 
-    def aggiungi_utenti(self, username):
+            for i, utente in enumerate(utenti_trovati):
+                print(f"{i} : {utente}")
+
+            print("Selezionare l'utente da aggiungere (inserire numero)")
+            scelta = int(input("Inserisci -> "))
+
+            if 0 <= scelta < len(utenti_trovati):
+                utente_selezionato = utenti_trovati[scelta]
+                azione = input(f"Hai selezionato {utente_selezionato}\nSicuro di volerlo aggiungere? Sì(S) - No(N)")
+
+                if azione.upper() == "S":
+                    print(f"Sto aggiungendo utente: {utente_selezionato}")
+
+                    if self.connection.sismember('utente:'f'{logatto}:Contatti', f'{utente_selezionato}') == 0:
+                        self.connection.sadd(f'utente:{logatto}:Contatti', f'{utente_selezionato}')
+                    else : 
+                        print(f'\n Utente già presenta nei contatti')
+                    break
+                
+                elif azione.upper() == "N":
+                    print(f"Non desideri aggiungere utente: {utente_selezionato}")
+                    chiusura = input("Desideri cercare altri utenti? Sì(S) - No(N)")
+
+                    if chiusura.upper() == "N":
+                        break
+                    elif chiusura.upper() == "S":
+                        continue
+                    else:
+                        print("Errore nell'inserimento - conclusione")
+                        break
+                else:
+                    print("Errore nell'inserimento, ricomincio procedimento...")
+                    continue
+            else:
+                print("Errore: Scelta non valida. Riprova.")
+    '''
+    def aggiungi_utenti(self):
         dizionario_utenti = {}
 
         while True:
@@ -108,8 +156,31 @@ class RedisManager:
                     continue
             else:
                 print("Errore: Scelta non valida. Riprova.")
+    '''
+    def ricerca_utenti(self):
+        utente_ricerca = input("Inserire l'utente da cercare: ")
+        matching_keys = self.connection.keys(f"utente:{utente_ricerca}*")
 
+        utenti_trovati = []
 
+        for key in matching_keys:
+            
+            user_data = self.connection.hgetall(key)
+            
+            utenti_trovati.append(user_data['username'])
+            if logatto in utenti_trovati:
+                utenti_trovati.remove(logatto)
+        print(utenti_trovati)
+
+        if utenti_trovati:
+            utenti_trovati_str = ', '.join(utenti_trovati)
+            print(f'Ecco gli utenti trovati -> "{utente_ricerca}": {utenti_trovati_str}')
+            return utenti_trovati
+        else:
+            print(f'Nessun utente trovato che comincia con "{utente_ricerca}"')
+            return False
+        
+    '''
     def ricerca_utenti(self):
         print("Ricerca utenti avviata")  
         chiave = 'username'    
@@ -128,18 +199,41 @@ class RedisManager:
         else:
             print(f'Nessun utente trovato che comincia con "{utente_ricerca}"')
             return False
-
+        '''
     def non_disturbare(self):
-        print("Non disturbare")
+        if self.connection.hget(f'utente:{logatto}', 'DnD') == 1:
+            print(">>>  Sei in modalita non disturbare  <<<")
+        else:
+            print(">>>  Non sei in modalita disturbare  <<<")
 
-    def invia_messaggio(self, chatroom, mittente, contenuto):
-        messaggio = {'mittente': mittente, '>': contenuto}
-        self.connection.xadd(chatroom, messaggio)
+        while True:
+            print("1. Attiva modalita non disturbare\n2. Disattiva modalita non disturbare\n3. Torna alla Home")
+            x = input("Inserisci la tua scelta: ")
+            match x:
+                case '1':
+                    self.connection.hset(f'utente:{logatto}', 'DnD', 1)
+                    print("Modalita non disturbare attivata")
+                    break
+                case '2':
+                    self.connection.hset(f'utente:{logatto}', 'DnD', 0)
+                    print("Modalita non disturbare disattivata")
+                    break
+                case '3':
+                    break
+                case _:
+                    print("Scelta non valida. Riprova.")
+                    continue
+
+    def invia_messaggio(self):
+        self.connection.xgroup_create()
     
     def leggi_messagi(self, chatroom, ultimo_msg='0'):
         messaggio = self.connection.xread({chatroom: ultimo_msg}, count = 10)
         return messaggio
     
+    def crea_chat(self, user):
+        self.connection.sadd('utente:greta' , 'greta:',user )
+
     def chatta(self):
         while True:
             print("CHAT")
@@ -148,10 +242,11 @@ class RedisManager:
             choice = input("Inserisci la tua scelta: ")
 
             if choice == '1': 
-                chatroom = input('Inserisci in quale chatroom vuoi inviare i messaggi: ')
+                chatroom  = input('Inserisci in quale chatroom vuoi inviare i messaggi: ')
                 mitttente = input('mittente: ')  # -> Provisorio
                 messaggio = input('Inserisci il messaggio: ')
                 self.invia_messaggio(chatroom, mitttente, messaggio)
+
             elif choice == '2':
                 chatroom = input('Di quale chatroom vuoi leggere i messaggi: ')
                 print(self.leggi_messagi(chatroom))
@@ -171,7 +266,8 @@ class RedisManager:
             if choice == 'R':
                 self.ricerca_utenti()
             elif choice == 'A':
-                self.aggiungi_utenti(username=username)
+                #self.aggiungi_utenti(username=username)
+                self.agg_utenti()
             elif choice == 'O':
                 self.non_disturbare()
             elif choice == 'C':
@@ -183,7 +279,7 @@ class RedisManager:
 
 if __name__ == "__main__":
     redis_manager = RedisManager(
-        host='localhost',
+        host='localhost',  #per un db cloud cambiare close e aggiungere la password
         port=6379,
     )
     print("Redis Chat")
