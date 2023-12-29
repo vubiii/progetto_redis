@@ -231,8 +231,9 @@ class RedisManager:
 
 if __name__ == "__main__":
     redis_manager = RedisManager(
-        host='localhost',  #per un db cloud cambiare close e aggiungere la password
-        port=6379,
+        host='redis-10048.c304.europe-west1-2.gce.cloud.redislabs.com',  
+        port=10048,
+        password='1x5x6xi9x0SGA4uOuErpndO5H8xYH9dG'
     )
     print("Redis Chat")
     redis_manager.open()
