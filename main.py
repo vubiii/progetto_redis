@@ -1,7 +1,7 @@
 import redis
 import time
 from datetime import datetime
-
+# Esame redis
 class RedisManager:
     def __init__(self, host, port, password):
         self.host = host
@@ -42,8 +42,8 @@ class RedisManager:
                 try:
                     self.connection.hset('utente:'f'{username_input}', mapping={'username':f'{username_input}', 
                                                                                 'password':f'{password_input}',
-                                                                                'DnD': 0})
-                    print(f"Registrazione utente completata, benvenuto {username_input}")
+                                                                                'DnD': 1})
+                    print(f"Registrazione utente completata, benvenut* {username_input}")
                     return True
                 except Exception as e:
                     print(f"Errore durante l'inserimento: {e}")
@@ -60,9 +60,6 @@ class RedisManager:
             password_registrata = self.connection.hget('utente:'f'{username}', 'password')
 
             if password_registrata == password:
-                global logatto 
-                logatto = username
-
                 return [True, username, password]
             else:
                 print("Credenziali errate. Riprova.")
@@ -99,8 +96,9 @@ class RedisManager:
                     print(f"Sto aggiungendo utente: {utente_selezionato}")
                     
                     try:
-                        if self.connection.sismember('utente:'f'{username}:Contatti', f'{utente_selezionato}') == 0:
-                            self.connection.sadd(f'utente:{username}:Contatti', f'{utente_selezionato}')
+                        if self.connection.sismember('contatti:' f'{username}:', f'{utente_selezionato}') == 0 and self.connection.sismember('utente:'f'{utente_selezionato}:Contatti', f'{username}') == 0:
+                            self.connection.sadd(f'contatti:{username}', f'{utente_selezionato}')
+                            self.connection.sadd(f'contatti:{utente_selezionato}', f'{username}')
                             print(f"Utente {utente_selezionato} aggiunto come amico.")
                             break
                         else:
@@ -128,7 +126,7 @@ class RedisManager:
     def visualizza_lista_amici(self, username):
         amici = []
         print("Visualizza lista amici avviato")
-        chiave = f'utente:{username}:Contatti'
+        chiave = f'contatti:{username}'
         chiavi = self.connection.keys(chiave)
         for chiave in chiavi:
             lista_amici = self.connection.smembers(chiave)
@@ -137,9 +135,10 @@ class RedisManager:
         if amici:
             amici_trovati_str = ', '.join(amici)
             print(f'Lista Amici :\n {amici_trovati_str}')
-            return lista_amici
+            return list(lista_amici)
         else:
             print("Nessun amico nella lista amici")
+            return []
 
     def ricerca_utenti(self):
         print("Ricerca utenti avviata")  
@@ -147,7 +146,7 @@ class RedisManager:
         utente_ricerca = input("Selezionare l'utente da ricercare <- ")
         chiave_utente = f"utente:{utente_ricerca}*"
         keys = self.connection.scan_iter(match=chiave_utente)
-        utenti_trovati = []  # utenti trovati che corrispondono a
+        utenti_trovati = [] 
         
         try:
             for key in keys:
@@ -160,19 +159,20 @@ class RedisManager:
                 return utenti_trovati
             else:
                 print(f'Nessun utente trovato che comincia con "{utente_ricerca}"')
-                return []  # o None, a seconda delle tue esigenze
+                return [] 
         
         except Exception as e:
             print(f"Errore - {e}")
             return None
 
     def non_disturbare(self, username):
-        chiave_dnd = f'utente:{username}', 'DnD'
-        
         print("Non disturbare - ON e OFF")
 
+        chiave_dnd = f'utente:{username}'
+        
         while True:
-            stato_corrente = self.connection.hget(chiave_dnd)
+            stato_corrente = int(self.connection.hget(chiave_dnd, 'DnD') or 0)
+
             if stato_corrente == 1:
                 stato = "ATTIVO"
             elif stato_corrente == 0:
@@ -181,130 +181,189 @@ class RedisManager:
                 stato = "Non Definito"
 
             print(f"Lo stato corrente è: {stato}")
-            scelta = input("Desideri attivare (S) o disattivare (N) lo stato?").upper()
-
-            if scelta == "S" and stato_corrente == 0:
-                self.connection.set(chiave_dnd, 1)
-                print("Lo stato DND è stato attivato.")
-            elif scelta == "N" and stato_corrente == 1:
-                self.connection.set(chiave_dnd, 0)
-                print("Lo stato DND è stato disattivato.")
+            scelta = input("Desideri attivare (A) o disattivare (D) lo stato?").upper()
+            if scelta == "A" and stato_corrente == 0:
+                self.connection.hset(chiave_dnd, 'DnD', 1)
+                print("Lo stato DND è stato attivato. Premere qualsiasi tasto per tornare alla home")
+            elif scelta == "D" and stato_corrente == 1:
+                self.connection.hset(chiave_dnd, 'DnD', 0)
+                print("Lo stato DND è stato disattivato. Premere qualsiasi tasto per tornare alla home")
             else:
                 print("Reindirizzamento alla home")
                 break
 
-    # Questo va integrato al tuo
-    def chatta_vecchio(self, username):
-        # Verifica se utente nella lista contatti - necessario
-        print("Con quale utente desidera chattare?")
-        chiave = "username"
-        dizionario_contatti = {}
-        try:
-            utenti_trovati = self.visualizza_lista_amici(username=username)
-            print(f"Ecco una lista di utenti trovati :")
+    def chatta(self, username):
+            while True:
+                print(f"Chat - Benvenut* {username} ")
+                print("Invia Messaggio - 1 \nVisualizza Messaggi - 2 \nTorna alla Home - 3 \n")
 
-            if utenti_trovati is not None:
-                for i, utente in enumerate(utenti_trovati):
-                    dizionario_contatti[i] = utente
-                    print(f"{i} : {utente}")
-            
-            print("Selezionare l'utente con cui chattare (inserire numero)")
-            scelta = int(input("Inserisci -> "))
-            utente_selezionato = dizionario_contatti[scelta]
-            print(f"Hai selezionato {utente_selezionato}\n")
+                scelta = input("Inserisci la tua scelta: ")
 
-
-            #da qua cambiare
-
-            chiave_utente = f"{chiave}:{username}"
-            chiave_ricevitore = f"{chiave}:{utente_selezionato}"
-            chiave_dnd_ricevitore = f"{username}:dnd"
-            stato_corrente = self.connection.get(chiave_dnd_ricevitore)
-            
-
-            tipologia_chat = input("Chat classica(0) - Chat temporizzata(1)")  
-            # Ora devo verificare se l'utente è disponibile alla chat
-            if self.connection.exists(chiave_utente) and self.connection.exists(chiave_ricevitore):
-                # Qua deve essere possibile inviare il primo messaggio
-                if stato_corrente == "1":
-                    print(f"Utente {utente_selezionato} è disponibile per chattare")
-                    if int(tipologia_chat) == 0:
-                        print("Hai selezionato chat classica")
-                    elif int(tipologia_chat) == 1:
-                        print("Hai selezionato chat temporizzata")
-                        durata_minuto = 60  # Durata in secondi
-                        tempo_inizio = time.time()
-                        tempo_scaduto = False
-                        # inizio timer
-                    else:
-                        print("Errore nella selezione")
-                    
+                if scelta == '1':
+                    self.invia_messaggio(username=username)
+                elif scelta == '2':
+                    self.leggi_messaggi(username=username)
+                elif scelta == '3':
+                    break
                 else:
-                    print(f"L'utente {utente_selezionato} non è disponibile \n- Modalità dnd attiva")
-            else:
-                print("Errore")
+                    print("Scelta non valida. Riprova.")
 
+    def invia_messaggio(self, username):
+        lista_amici = self.visualizza_lista_amici(username=username)
+        print("Hai selezionato chatta - seleziona con quale utente vuoi chattare")
                 
-        except :
-            print("errore")
-
-
-        # i messaggi devono essere inviati a chi è nella propria lista contatti
-        # se dnd attivo allora si messaggi se no no messaggi
-        # lettura dei messaggi username > mmmmmmmm    username_2 < mmmmm
-
-    # Metodi Jose
-    def invia_messaggio(self):
-            for indx, contatto in enumerate(self.contatti()):
-                print(f'>>>   {indx} - {contatto}   <<<')
-
+        for indx, contatto in enumerate(lista_amici):
+            print(f'>>>   {indx} - {contatto}   <<<')
+        if lista_amici:
             scelta = int(input("Inserisci la scelta: "))
-            contatto = self.contatti()
-            messaggio = input("Inserisci il messaggio: ")
+            contatto = lista_amici[scelta]
 
-            if self.connection.hget(f'utente:{contatto[scelta]}', 'DnD') == 1:
-                self.connection.xadd(f'utente:{logatto}:chat:{contatto[scelta]}', {'mittente': messaggio, 'destinatario': ''})
+            scelta = input("Desideri fare una chat temporizzata? Sì(S) - No(N)")
+
+            if scelta.upper() == "N":
+                print("Inizio chat classica")
+
+                chiave_chat = f"chat:{username}:{contatto}"
+                chiave_inversa= f"chat:{contatto}:{username}"
+
+                temp = self.connection.exists(chiave_inversa)
+                
+                if temp == True:
+                    #per verificare che la chat non sia stata già avviata
+                    chiave_chat = chiave_inversa
+                data_ora = time.time()
+                print(f"Inizio chat tra {username} e {contatto} ")
+                if not self.connection.exists(chiave_chat):
+                    self.connection.xadd(chiave_chat, {'mittente':"--",'messaggio': f"Inizio chat con {contatto}", 'timestamp':data_ora })
+                while True:
+                    messaggio = input(f"{username}> ")
+                    if messaggio.lower() != "exit":
+                        chiave_dnd = f'utente:{contatto}'
+                        stato_corrente = int(self.connection.hget(chiave_dnd, 'DnD') or 0)
+                        if stato_corrente == 1:
+                            self.connection.xadd(chiave_chat, {'mittente': username, 'messaggio':messaggio, 'timestamp':data_ora})
+
+                        elif stato_corrente == 0:
+                            messaggio_errore = "Non è stato possibile inviare il messaggio perché l'utente è in modalità non disturbare"
+                            self.connection.xadd(chiave_chat, {'mittente': username, 'messaggio':messaggio_errore, 'timestamp':data_ora})
+                            print(f"< {messaggio_errore}")
+                            break
+                        else:
+                            print("Errore")
+                            break
+                    else:
+                        print("Chiusura")
+                        break
+            elif scelta.upper() == "S":
+                print("Hai selezionato chat temporizzata")
+                chiave_chat = f"chat:{username}:{contatto}"
+                chiave_inversa= f"chat:{contatto}:{username}"
+            
+                temp = self.connection.exists(chiave_inversa)
+                
+                if temp == True:
+                    #per verificare che la chat non abbia chiave inversa
+                    chiave_chat = chiave_inversa
+                
+                chiave_chat_temporanea = "temp:"+chiave_chat
+                
+                print(f"Inizio chat con {contatto}, inserire exit per uscire ")
+                data_ora = time.time()
+                stato_corrente = int(self.connection.hget(chiave_dnd, 'DnD') or 0)
+                if not self.connection.exists(chiave_chat_temporanea) and stato_corrente == 1:
+                    self.connection.xadd(chiave_chat_temporanea, {'mittente': username, 'messaggio': f"Inizio chat con {contatto}", 'timestamp': data_ora })
+                print(f"Inizio timer")
+                inizio = time.time()
+                while True:
+                    tempo_rimasto = time.time() - inizio
+
+                    if tempo_rimasto >= 60:
+                        try:
+                            print("Limite di tempo superato - autodistruzione della chat")
+                            self.connection.delete(chiave_chat_temporanea)
+                            break
+                        except Exception as e:
+                            print(f"Errore - {e}")
+
+                    messaggio = input(f"{username} > ")
+                    if messaggio.lower() == "exit":
+                        print("Chiusura")
+                        break
+
+                    chiave_dnd = f'utente:{contatto}'
+                    stato_corrente = int(self.connection.hget(chiave_dnd, 'DnD') or 0)
+
+                    if stato_corrente == 1:
+                        self.connection.xadd(chiave_chat_temporanea, {'mittente': username, 'messaggio': messaggio, 'timestamp': time.time()})
+                    elif stato_corrente == 0:
+                        print("Non è stato possibile inviare il messaggio perché l'utente è in modalità non disturbare")
+                        break
+                    else:
+                        print("Errore")
+                        break
             else:
-                print(">>>  Non è stato possibili inviare il messagio perche l'utente è in modalita non disturbare  <<<")
+                print("!!! La scelta effettuata non è consentita !!!")
+        elif not lista_amici:
+            print("Non hai amici nella lista con cui chattare")   
+        else:
+            print("Errore generico") 
 
-            self.connection.xgroup_create(f'utente:{logatto}:chat:{contatto[scelta]}', f'{logatto}-{contatto[scelta]}')
-    
-    def leggi_messagi(self):
-        for indx, contatto in enumerate(self.contatti()):
+    def leggi_messaggi(self,username):
+        lista_amici = self.visualizza_lista_amici(username=username)
+        print("Hai selezionato visualizza lo storico - seleziona la chat da visionare")
+        
+        for indx, contatto in enumerate(lista_amici):
             print(f'>>>   {indx} - {contatto}   <<<')
 
-        scelta = int(input("Inserisci la scelta: "))
-        contatto = self.contatti()
-
-        messaggio = self.connection.xread(f'utente:{logatto}:chat:{contatto[scelta]}', count = 10)
-        print(messaggio)
-    
-    def crea_chat(self, user):
-        self.connection.sadd('utente:greta' , 'greta:',user )
-
-    def contatti(self):
-        amici = []
-        c = self.connection.keys(f'utente:{logatto}:Contatti')
-        for obj in c:
-            l_amici = self.connection.smembers(f'utente:{logatto}:Contatti')
-            amici.extend(l_amici)
-        return amici
-        
-    def chatta(self):
         while True:
-            print("CHAT")
-            print("1. Invia Messaggio\n2. Visualizza Messaggi\n3. Torna alla Home")
-
-            choice = input("Inserisci la tua scelta: ")
-
-            if choice == '1': 
-                self.invia_messaggio()
-            elif choice == '2':
-                self.leggi_messagi()
-            elif choice == '3':
+            try:
+                scelta = int(input("Inserisci la scelta: "))
+                contatto = lista_amici[scelta]
                 break
-            else:
-                print("Scelta non valida. Riprova.")
+            except:
+                print("Scelta non valida")
+
+        esistenza_chat = False
+
+        chiave_stream = f'chat:{username}:{contatto}'
+        if self.connection.exists(chiave_stream) == False:
+            chiave_stream_inversa = f'chat:{contatto}:{username}'
+            temp = self.connection.exists(chiave_stream_inversa)    
+            if temp == True:
+                    # Per verificare che la chat non abbia chiave inversa
+                    chiave_stream = chiave_stream_inversa
+                    esistenza_chat = True
+            
+        else:
+            esistenza_chat = True
+
+        if esistenza_chat == True:
+            # Restituisce una tupla
+            messaggi = self.connection.xread({chiave_stream: '0'})
+            for element in messaggi:
+                chiave_stream, lista_messaggi = element
+                for id_messaggio, messaggio in lista_messaggi:
+                    stringa_in_ou = ""  
+                    testo = ""
+                    data_stampa = ""
+                    
+                    for chiave, valore in messaggio.items():
+                        if chiave == "mittente" and valore == username:
+                            stringa_in_ou = ">>"
+                        elif chiave == "mittente" and valore == contatto:
+                            stringa_in_ou = "<<"
+                        elif chiave == "messaggio":
+                            testo = valore
+                        elif chiave == "timestamp":
+                            formato_data = datetime.utcfromtimestamp(float(valore))
+                            data_trasformata = formato_data.strftime('%Y-%m-%d %H:%M:%S')
+                            data_stampa = f"[{data_trasformata}]"
+                    
+                    stringa_unica = f"{stringa_in_ou}{testo}{data_stampa}\n"
+                    print(stringa_unica, end=' ')  
+        else:
+                print(f"Non hai conversazioni con l'utente {contatto}")
+
 
     def home(self, username, password):
         while True:
@@ -312,6 +371,7 @@ class RedisManager:
             print(f"--- Ricerca Utenti (R)    -   Aggiungi Utenti (A) ---\n")
             print(f"--- Non Disturbare (O)    -   Chatta!         (C) ---\n ")
             print(f"--- Lista Amici    (L)    -   Esci         (E) ---\n")
+            print(f"\n ------------------------------------------------- \n")
             scelta = input("Inserisci la tua scelta: ").upper()
 
             if scelta == 'R' :
@@ -321,7 +381,7 @@ class RedisManager:
             elif scelta == 'O':
                 self.non_disturbare(username=username)
             elif scelta == 'C':
-                self.chatta(username=username)
+                self.chatta(username)
             elif scelta == 'L':
                 self.visualizza_lista_amici(username=username)
             elif scelta == 'E':
