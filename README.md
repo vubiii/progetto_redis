@@ -1,20 +1,20 @@
 [.README]
 
---- Progetto Redis esame - consegna 1/1/2024
+# Progetto Redis esame - consegna 1/1/2024
     Lo scopo del progetto è quello di creare un db in redis di supporto ad un'applicazione di messaggistica
 
---- Librerie
+## Librerie
     Le librerie e la versione di Python sono indicate nei requirements.
     Ulteriori librerie sono parte del linguaggio.
 
---- Indicazioni
+## Indicazioni
     - Creazione di un nuovo ambiente di sviluppo : 
         conda create -n redis python=3.11
         
     - Librerie installate : 
         pip install redis
 
---- Configurazione
+## Configurazione
     - Credenziali per accedere al db, da cambiare nel main del progetto
     - username, Password
         user = default

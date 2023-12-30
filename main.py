@@ -46,7 +46,7 @@ class RedisManager:
                     self.connection.hset('utente:'f'{username_input}', mapping={'username':f'{username_input}', 
                                                                                 'password':f'{password_input}',
                                                                                 'DnD': 1})
-                    print(f"Registrazione utente completata, benvenut* {username_input}")
+                    print(f"Registrazione utente completata, benvenuto {username_input}")
                     return True
                 except Exception as e:
                     print(f"Errore durante l'inserimento: {e}")
@@ -199,7 +199,7 @@ class RedisManager:
 
     def chatta(self, username):
             while True:
-                print(f"Chat - Benvenut* {username} ")
+                print(f"Chat - Benvenuto {username} ")
                 print("Invia Messaggio - 1 \nVisualizza Messaggi - 2 \nTorna alla Home - 3 \n")
 
                 scelta = input("Inserisci la tua scelta: ")
@@ -365,7 +365,7 @@ class RedisManager:
                                     data_trasformata = formato_data.strftime('%Y-%m-%d %H:%M:%S')
                                     data_stampa = f"[{data_trasformata}]"
                             
-                            stringa_unica = f"{stringa_in_ou}{testo}{data_stampa}\n"
+                            stringa_unica = f"{stringa_in_ou}{testo}\t\t{data_stampa}\n"
                             print(stringa_unica, end=' ')
                     time.sleep(5)
                     risposta = input("Vuoi tornare indietro? (S): ")
