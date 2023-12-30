@@ -8,8 +8,10 @@ class RedisManager:
         self.port = port
         self.password = password
         self.connection = None
+        self.posizione_messaggi = {}
 
     def open(self):
+        # Metodo per aprire la connessione a Redis
         print("Connessione al database")
         try:
             self.connection = redis.Redis(
@@ -23,9 +25,11 @@ class RedisManager:
             print(f"Errore: {e}")
 
     def close(self):
+        # Metodo per chiudere la connessione a Redis
         if self.connection:
             try:
                 self.connection.close()
+                loggato = ""
                 print("Connesione chiusa")
             except Exception as e:
                 print(f"Errore durante la connessione: {e}")
@@ -36,7 +40,6 @@ class RedisManager:
             username_input = input("Inserire il nome utente: ")
             password_input = input("Inserire password: ")
             password_registrata = self.connection.hget('utente:'f'{username_input}', 'username')
-
 
             if password_registrata is None:
                 try:
@@ -53,6 +56,7 @@ class RedisManager:
                 return False
 
     def login(self):
+        global loggato 
         print("Login Utente")
         username = input("Inserire il nome utente: ")
         password = input("Inserire password: ")
@@ -60,6 +64,7 @@ class RedisManager:
             password_registrata = self.connection.hget('utente:'f'{username}', 'password')
 
             if password_registrata == password:
+                loggato = username
                 return [True, username, password]
             else:
                 print("Credenziali errate. Riprova.")
@@ -217,6 +222,7 @@ class RedisManager:
         if lista_amici:
             scelta = int(input("Inserisci la scelta: "))
             contatto = lista_amici[scelta]
+            chiave_dnd = f'utente:{contatto}'
 
             scelta = input("Desideri fare una chat temporizzata? Sì(S) - No(N)")
 
@@ -232,13 +238,13 @@ class RedisManager:
                     #per verificare che la chat non sia stata già avviata
                     chiave_chat = chiave_inversa
                 data_ora = time.time()
-                print(f"Inizio chat tra {username} e {contatto} ")
+                print(f"Inizio chat tra {username} e {contatto} - inserire exit per uscire ")
                 if not self.connection.exists(chiave_chat):
                     self.connection.xadd(chiave_chat, {'mittente':"--",'messaggio': f"Inizio chat con {contatto}", 'timestamp':data_ora })
                 while True:
                     messaggio = input(f"{username}> ")
                     if messaggio.lower() != "exit":
-                        chiave_dnd = f'utente:{contatto}'
+                        
                         stato_corrente = int(self.connection.hget(chiave_dnd, 'DnD') or 0)
                         if stato_corrente == 1:
                             self.connection.xadd(chiave_chat, {'mittente': username, 'messaggio':messaggio, 'timestamp':data_ora})
@@ -256,13 +262,13 @@ class RedisManager:
                         break
             elif scelta.upper() == "S":
                 print("Hai selezionato chat temporizzata")
+                
                 chiave_chat = f"chat:{username}:{contatto}"
                 chiave_inversa= f"chat:{contatto}:{username}"
-            
+
                 temp = self.connection.exists(chiave_inversa)
                 
                 if temp == True:
-                    #per verificare che la chat non abbia chiave inversa
                     chiave_chat = chiave_inversa
                 
                 chiave_chat_temporanea = "temp:"+chiave_chat
@@ -285,7 +291,7 @@ class RedisManager:
                         except Exception as e:
                             print(f"Errore - {e}")
 
-                    messaggio = input(f"{username} > ")
+                    messaggio = input(f"{username}> ")
                     if messaggio.lower() == "exit":
                         print("Chiusura")
                         break
@@ -308,61 +314,98 @@ class RedisManager:
         else:
             print("Errore generico") 
 
-    def leggi_messaggi(self,username):
-        lista_amici = self.visualizza_lista_amici(username=username)
-        print("Hai selezionato visualizza lo storico - seleziona la chat da visionare")
-        
-        for indx, contatto in enumerate(lista_amici):
-            print(f'>>>   {indx} - {contatto}   <<<')
+    def leggi_messaggi(self, username):
+            lista_amici = self.visualizza_lista_amici(username=username)
+            print("Hai selezionato visualizza lo storico - seleziona la chat da visionare")
+            
+            for indx, contatto in enumerate(lista_amici):
+                print(f'>>>   {indx} - {contatto}   <<<')
 
-        while True:
-            try:
-                scelta = int(input("Inserisci la scelta: "))
-                contatto = lista_amici[scelta]
-                break
-            except:
-                print("Scelta non valida")
+            while True:
+                try:
+                    scelta = int(input("Inserisci la scelta: "))
+                    contatto = lista_amici[scelta]
+                    break
+                except:
+                    print("Scelta non valida")
 
-        esistenza_chat = False
+            esistenza_chat = False
 
-        chiave_stream = f'chat:{username}:{contatto}'
-        if self.connection.exists(chiave_stream) == False:
-            chiave_stream_inversa = f'chat:{contatto}:{username}'
-            temp = self.connection.exists(chiave_stream_inversa)    
-            if temp == True:
-                    # Per verificare che la chat non abbia chiave inversa
+            chiave_stream = f'chat:{username}:{contatto}'
+            if self.connection.exists(chiave_stream) == False:
+                chiave_stream_inversa = f'chat:{contatto}:{username}'
+                temp = self.connection.exists(chiave_stream_inversa)    
+                if temp == True:
                     chiave_stream = chiave_stream_inversa
                     esistenza_chat = True
-            
-        else:
-            esistenza_chat = True
+                
+            else:
+                esistenza_chat = True
 
-        if esistenza_chat == True:
-            # Restituisce una tupla
-            messaggi = self.connection.xread({chiave_stream: '0'})
-            for element in messaggi:
-                chiave_stream, lista_messaggi = element
-                for id_messaggio, messaggio in lista_messaggi:
-                    stringa_in_ou = ""  
-                    testo = ""
-                    data_stampa = ""
-                    
-                    for chiave, valore in messaggio.items():
-                        if chiave == "mittente" and valore == username:
-                            stringa_in_ou = ">>"
-                        elif chiave == "mittente" and valore == contatto:
-                            stringa_in_ou = "<<"
-                        elif chiave == "messaggio":
-                            testo = valore
-                        elif chiave == "timestamp":
-                            formato_data = datetime.utcfromtimestamp(float(valore))
-                            data_trasformata = formato_data.strftime('%Y-%m-%d %H:%M:%S')
-                            data_stampa = f"[{data_trasformata}]"
-                    
-                    stringa_unica = f"{stringa_in_ou}{testo}{data_stampa}\n"
-                    print(stringa_unica, end=' ')  
-        else:
+            if esistenza_chat:
+                while True:
+                    ultimo_messaggio = self.posizione_messaggi.get(chiave_stream, '0')
+                    messaggi = self.connection.xread({chiave_stream: '0'})
+                    for element in messaggi:
+                        chiave_stream, lista_messaggi = element
+                        for id_messaggio, messaggio in lista_messaggi:
+                            stringa_in_ou = ""  
+                            testo = ""
+                            data_stampa = ""
+                            
+                            for chiave, valore in messaggio.items():
+                                if chiave == "mittente" and valore == username:
+                                    stringa_in_ou = ">>"
+                                elif chiave == "mittente" and valore == contatto:
+                                    stringa_in_ou = "<<"
+                                elif chiave == "messaggio":
+                                    testo = valore
+                                elif chiave == "timestamp":
+                                    formato_data = datetime.utcfromtimestamp(float(valore))
+                                    data_trasformata = formato_data.strftime('%Y-%m-%d %H:%M:%S')
+                                    data_stampa = f"[{data_trasformata}]"
+                            
+                            stringa_unica = f"{stringa_in_ou}{testo}{data_stampa}\n"
+                            print(stringa_unica, end=' ')
+                    time.sleep(5)
+                    risposta = input("Vuoi tornare indietro? (S): ")
+                    if risposta.upper() == 'S':
+                        return  
+            else:
                 print(f"Non hai conversazioni con l'utente {contatto}")
+
+    def notifiche_push(self, contatto):
+        username = loggato  
+        chiave_stream = f'chat:{username}:{contatto}'
+
+        while True:
+            if self.connection.exists(chiave_stream):
+                messaggi = self.connection.xread({chiave_stream: '0'})
+                for element in messaggi:
+                    chiave_stream, lista_messaggi = element
+                    for id_messaggio, messaggio in lista_messaggi:
+                        stringa_in_ou = ""  
+                        testo = ""
+                        data_stampa = ""
+                        
+                        for chiave, valore in messaggio.items():
+                            if chiave == "mittente" and valore == username:
+                                stringa_in_ou = ">>"
+                            elif chiave == "mittente" and valore == contatto:
+                                stringa_in_ou = "<<"
+                            elif chiave == "messaggio":
+                                testo = valore
+                            elif chiave == "timestamp":
+                                formato_data = datetime.utcfromtimestamp(float(valore))
+                                data_trasformata = formato_data.strftime('%Y-%m-%d %H:%M:%S')
+                                data_stampa = f"[{data_trasformata}]"
+                        
+                        stringa_unica = f"{stringa_in_ou}{testo}{data_stampa}\n"
+                        print("Nuovo messaggio!")
+                        print(stringa_unica)  
+
+                time.sleep(5)
+
 
 
     def home(self, username, password):
@@ -371,7 +414,7 @@ class RedisManager:
             print(f"--- Ricerca Utenti (R)    -   Aggiungi Utenti (A) ---\n")
             print(f"--- Non Disturbare (O)    -   Chatta!         (C) ---\n ")
             print(f"--- Lista Amici    (L)    -   Esci         (E) ---\n")
-            print(f"\n ------------------------------------------------- \n")
+            print(f"-------------------------------------------------")
             scelta = input("Inserisci la tua scelta: ").upper()
 
             if scelta == 'R' :
