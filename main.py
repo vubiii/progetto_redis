@@ -315,75 +315,39 @@ class RedisManager:
             print("Errore generico") 
 
     def leggi_messaggi(self, username):
-            lista_amici = self.visualizza_lista_amici(username=username)
-            print("Hai selezionato visualizza lo storico - seleziona la chat da visionare")
-            
-            for indx, contatto in enumerate(lista_amici):
-                print(f'>>>   {indx} - {contatto}   <<<')
-
-            while True:
-                try:
-                    scelta = int(input("Inserisci la scelta: "))
-                    contatto = lista_amici[scelta]
-                    break
-                except:
-                    print("Scelta non valida")
-
-            esistenza_chat = False
-
-            chiave_stream = f'chat:{username}:{contatto}'
-            if self.connection.exists(chiave_stream) == False:
-                chiave_stream_inversa = f'chat:{contatto}:{username}'
-                temp = self.connection.exists(chiave_stream_inversa)    
-                if temp == True:
-                    chiave_stream = chiave_stream_inversa
-                    esistenza_chat = True
-                
-            else:
-                esistenza_chat = True
-
-            if esistenza_chat:
-                while True:
-                    ultimo_messaggio = self.posizione_messaggi.get(chiave_stream, '0')
-                    messaggi = self.connection.xread({chiave_stream: '0'})
-                    for element in messaggi:
-                        chiave_stream, lista_messaggi = element
-                        for id_messaggio, messaggio in reversed(lista_messaggi):
-                            stringa_in_ou = ""  
-                            testo = ""
-                            data_stampa = ""
-                            
-                            for chiave, valore in messaggio.items():
-                                if chiave == "mittente" and valore == username:
-                                    stringa_in_ou = ">>"
-                                elif chiave == "mittente" and valore == contatto:
-                                    stringa_in_ou = "<<"
-                                elif chiave == "messaggio":
-                                    testo = valore
-                                elif chiave == "timestamp":
-                                    formato_data = datetime.utcfromtimestamp(float(valore))
-                                    data_trasformata = formato_data.strftime('%Y-%m-%d %H:%M:%S')
-                                    data_stampa = f"[{data_trasformata}]"
-                            
-                            stringa_unica = f"{stringa_in_ou}{testo}\t\t{data_stampa}\n"
-                            print(stringa_unica, end=' ')
-                    time.sleep(5)
-                    risposta = input("Vuoi tornare indietro? (S): ")
-                    if risposta.upper() == 'S':
-                        return  
-            else:
-                print(f"Non hai conversazioni con l'utente {contatto}")
-
-    def notifiche_push(self, contatto):
-        username = loggato  
-        chiave_stream = f'chat:{username}:{contatto}'
+        lista_amici = self.visualizza_lista_amici(username=username)
+        print("Hai selezionato di visualizzare lo storico - seleziona la chat da visionare")
+        
+        for indx, contatto in enumerate(lista_amici):
+            print(f'>>>   {indx} - {contatto}   <<<')
 
         while True:
-            if self.connection.exists(chiave_stream):
-                messaggi = self.connection.xread({chiave_stream: '0'})
+            try:
+                scelta = int(input("Inserisci la scelta: "))
+                contatto = lista_amici[scelta]
+                break
+            except :
+                print("Scelta non valida")
+
+        esistenza_chat = False
+        chiave_stream = f'chat:{username}:{contatto}'
+
+        if not self.connection.exists(chiave_stream):
+            chiave_stream_inversa = f'chat:{contatto}:{username}'
+            if self.connection.exists(chiave_stream_inversa):
+                chiave_stream = chiave_stream_inversa
+                esistenza_chat = True
+        else:
+            esistenza_chat = True
+
+        if esistenza_chat:
+            while True:
+                ultimo_messaggio = self.posizione_messaggi.get(chiave_stream, '0')
+                messaggi = self.connection.xread({chiave_stream: ultimo_messaggio})
+
                 for element in messaggi:
                     chiave_stream, lista_messaggi = element
-                    for id_messaggio, messaggio in lista_messaggi:
+                    for id_messaggio, messaggio in reversed(lista_messaggi):
                         stringa_in_ou = ""  
                         testo = ""
                         data_stampa = ""
@@ -400,13 +364,62 @@ class RedisManager:
                                 data_trasformata = formato_data.strftime('%Y-%m-%d %H:%M:%S')
                                 data_stampa = f"[{data_trasformata}]"
                         
-                        stringa_unica = f"{stringa_in_ou}{testo}{data_stampa}\n"
-                        print("Nuovo messaggio!")
-                        print(stringa_unica)  
+                        stringa_unica = f"{stringa_in_ou}{testo}\t\t{data_stampa}\n"
+                        print(stringa_unica, end=' ')
 
-                time.sleep(5)
+                cont = 0
+                while True:
+                    messaggi_nuovi = self.connection.xread({chiave_stream: ultimo_messaggio})
+                    if messaggi == messaggi_nuovi:
+                        cont += 1
+                        print("\n")
+                        print("\n")
+                        print("\n")
+                        print("\n")
+                        print("\n")
+                        print("Nessun messaggio nuovo")
+                        print("\n")
+                        print("\n")
+                        print("\n")
+                        print("\n")
+                        if cont == 10:
+                            print("Nessun nuovo messaggio dopo 10 tentativi. La lettura è terminata.")
+                            return
+                        time.sleep(5)
+                    else:
+                        print("\n")
+                        print("\n")
+                        print("\n")
+                        print("\n Hai nuovi messaggi!")
+                        print("\n")
+                        print("\n")
+                        print("\n")
+                        messaggi = messaggi_nuovi
 
-
+                        for element in messaggi:
+                            chiave_stream, lista_messaggi = element
+                            for id_messaggio, messaggio in reversed(lista_messaggi):
+                                stringa_in_ou = ""  
+                                testo = ""
+                                data_stampa = ""
+                                
+                                for chiave, valore in messaggio.items():
+                                    if chiave == "mittente" and valore == username:
+                                        stringa_in_ou = ">>"
+                                    elif chiave == "mittente" and valore == contatto:
+                                        stringa_in_ou = "<<"
+                                    elif chiave == "messaggio":
+                                        testo = valore
+                                    elif chiave == "timestamp":
+                                        formato_data = datetime.utcfromtimestamp(float(valore))
+                                        data_trasformata = formato_data.strftime('%Y-%m-%d %H:%M:%S')
+                                        data_stampa = f"[{data_trasformata}]"
+                                
+                                stringa_unica = f"{stringa_in_ou}{testo}\t\t{data_stampa}\n"
+                                print(stringa_unica, end=' ')
+                
+        else:
+            print(f"Non hai conversazioni con l'utente {contatto}")
 
     def home(self, username, password):
         while True:
