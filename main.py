@@ -348,7 +348,7 @@ class RedisManager:
                     messaggi = self.connection.xread({chiave_stream: '0'})
                     for element in messaggi:
                         chiave_stream, lista_messaggi = element
-                        for id_messaggio, messaggio in lista_messaggi:
+                        for id_messaggio, messaggio in reversed(lista_messaggi):
                             stringa_in_ou = ""  
                             testo = ""
                             data_stampa = ""
